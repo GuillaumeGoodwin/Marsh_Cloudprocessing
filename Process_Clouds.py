@@ -31,7 +31,44 @@ from os import listdir
 from os.path import isfile, join
 
 
+################################################################################
+import numpy as np
+import functools
+import math as mt
+import cmath
+import scipy as sp
+import scipy.stats as stats
+from datetime import datetime
+import cPickle
+from pylab import *
+import functools
+import itertools as itt
+from osgeo import gdal, osr
+from osgeo import gdal, gdalconst
+from osgeo.gdalconst import *
+from copy import copy
+from matplotlib import cm
+import matplotlib.colors as colors
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+import matplotlib.ticker as tk
+from matplotlib import rcParams
+from mpl_toolkits.axes_grid1.inset_locator import *
+import matplotlib.gridspec as gridspec
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.basemap import Basemap, cm
+from matplotlib.patches import Rectangle
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import timeit
 
+
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+################################################################################
 
 ################################################################################
 def list_all_directories (directory, dir_list):
@@ -64,29 +101,6 @@ def list_all_directories (directory, dir_list):
     return dir_list
 
 
-################################################################################
-def unzip_files (dir_list):
-    """
-    This function looks into the given directory list and checks:
-    - whether there are compressed files
-    - what the compression extensions are
-    Then it uncompresses any compressed file it finds.
-    Accepts .zip, .tar.gz and .7z
-
-    args:
-    - basedir (String): the base directory
-
-    Returns:
-    -Nothing. The uncompressed files will appear in the directory
-    """
-
-
-    """# To merge files
-    for mypath in directory_list:
-        myfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-        to_open = ""
-        for file in myfiles:
-            if file[-4:] == In_ext:"""
 
 
 ################################################################################
@@ -112,7 +126,8 @@ def merge_clouds (basedir, dir_list, In_ext, Out_name, delete_clouds = True):
 
     #Open a directory
     for longdir in dir_list:
-        dir = longdir.replace(basedir, "")
+        dir = longdir.replace(basedir, "UK/SLW_NP/2017/")
+        #dir = longdir.replace(basedir, "")
         files = [f for f in listdir(dir) if isfile(join(dir, f))]
         if len(files) > 0:
             for this_file in files:
@@ -122,8 +137,6 @@ def merge_clouds (basedir, dir_list, In_ext, Out_name, delete_clouds = True):
                     os.system('unzip ' + dir + this_file + ' -d ' + dir )
                     #Look at all the PC files of the chosen extension
                     cloud_files = [f for f in listdir(dir) if isfile(join(dir, f))]
-                    #print cloud_files
-
 
                     i = 0
                     for cloud_file in cloud_files:
@@ -142,38 +155,19 @@ def merge_clouds (basedir, dir_list, In_ext, Out_name, delete_clouds = True):
                             if las_file != ".laz.las":
                                 to_open = to_open + "-O " + dir + las_file + " "
                         i+=1
-                        #if i>3:
-                            #break
+
                     os.system('cloudcompare.CloudCompare ' + to_open + '-NO_TIMESTAMP -MERGE_CLOUDS')
+                    os.system('rm '+dir+'*.las &')
 
-
-                    #
-
-                    #print to_open
-                            #
-
-                            #print dir + cloud_file
-                            #to_open = to_open + "-O " + dir + cloud_file[-4:] + '.las' + " "
-                    #os.system('cloudcompare.CloudCompare ' + to_open + '-NO_TIMESTAMP -MERGE_CLOUDS')
-
-                    s.system('rm '+dir+'*.las')
                     quit()
 
 
-            """to_open = ""
-            for file in myfiles:
-                if file[-4:] == In_ext:
-                    print mypath + file
-                    to_open = to_open + "-O " + file + " "
-            os.system('cloudcompare.CloudCompare ' + to_open + '-NO_TIMESTAMP -MERGE_CLOUDS')"""
-
-        #quit()
 
 
 
 
 ################################################################################
-def rasterize_cloud (basedir, In_name, Out_name, GRID_STEP, Fill_empty = 'INTERP'):
+def rasterize_clouds (basedir, dir_list, GRID_STEP, zipped = False, Fill_empty = 'INTERP'):
     """
     This function looks into a base directory and checks:
     - whether there are subdirectories
@@ -187,81 +181,182 @@ def rasterize_cloud (basedir, In_name, Out_name, GRID_STEP, Fill_empty = 'INTERP
     - In_name (List of Strings): The list of names of the clouds to rasterize. No extension
     - Out_name (String): The list of names for the outputs. No extension
     - GRID_STEP (Int): the grid step of the raster. Must be in the same units as the input cloud
-    - Fill_empty = 'INTERP': interpolate the elevation between points if a gird cell is void. Other options are available, but I'm not implementing them here for now.
+    - Fill_empty = 'INTERP': interpolate the elevation between points if a grid cell is void. Other options are available, but I'm not implementing them here for now.
 
 
     Returns:
-    -Nothing. The uncompressed files will appear in the directory
+    -Nothing. The rasterized files will appear in the directory
     """
 
+    #Open a directory
+    for longdir in dir_list:
+        dir = longdir.replace(basedir, "UK/SLW_NP/2017/")
+        #dir = longdir.replace(basedir, "")
+        files = [f for f in listdir(dir) if isfile(join(dir, f))]
+        if len(files) > 0:
+            for this_file in files:
+
+                if zipped == True:
+                    extension = '.las'
+                    if this_file[-4:] == '.zip':
+                        print dir + this_file
+                        os.system('unzip ' + dir + this_file + ' -d ' + dir )
+                        #Look at all the PC files of the chosen extension
+                        cloud_files = [f for f in listdir(dir) if isfile(join(dir, f))]
+                        i = 0
+                        for cloud_file in cloud_files:
+                            if cloud_file[-4:] == '.laz':
+                                os.system('laszip -i ' + dir+cloud_file + ' -o ' + dir + str(i) + '.las')
+                                os.system('rm ' + dir + cloud_file)
+                            i+=1
+
+                else:
+                    extension = '.bin'
 
 
-# Usage options
-Base_dir = "/home/willgoodwin/Data/Venice_LiDAR/txt/"
+        files = [f for f in listdir(dir) if isfile(join(dir, f))]
+        if len(files) > 0:
+            for this_file in files:
+                if this_file[-4:] == extension:
+                    if this_file != '.laz_MERGED.bin':
+                        print dir + this_file
+                        os.system('cloudcompare.CloudCompare -O ' + dir+this_file + ' -NO_TIMESTAMP -RASTERIZE -GRID_STEP '+ str(GRID_STEP) + ' -PROJ MIN -SF_PROJ AVG -EMPTY_FILL ' + Fill_empty + ' -OUTPUT_RASTER_Z')                        #os.system('cloudcompare.CloudCompare -O ' + dir+this_file + ' -NO_TIMESTAMP -RASTERIZE -GRID_STEP '+ str(GRID_STEP) + ' -PROJ MIN -SF_PROJ AVG -EMPTY_FILL CUSTOM_H -CUSTOM_HEIGHT -9999 -OUTPUT_RASTER_Z &')
 
-In_ext = ".txt" # .laz, .las
 
-GRID_STEP = 200
+################################################################################
+def merge_tiffs (basedir, dir_list, cutdir, Out_name):
+
+    """
+    This function looks into a base directory and checks:
+    - whether there are subdirectories
+    - whether the input clouds are present in the directory
+    Then it rasterizes it.
+    Accepts only .bin for now
+    IMPORTANT: If you don't want it to rasterize a whole bunch of unwanted clouds, make sure you delete them beforehand.
+
+    args:
+    - basedir (String): the base directory
+    - In_name (List of Strings): The list of names of the clouds to rasterize. No extension
+    - Out_name (String): The list of names for the outputs. No extension
+    - GRID_STEP (Int): the grid step of the raster. Must be in the same units as the input cloud
+    - Fill_empty = 'INTERP': interpolate the elevation between points if a grid cell is void. Other options are available, but I'm not implementing them here for now.
+
+
+    Returns:
+    -Nothing. The rasterized files will appear in the directory
+
+    NB: operates in the LSDTT_TEST environment to have gdal
+    """
+
+    #Open a directory
+    for longdir in dir_list:
+        dir = longdir.replace(basedir, "UK/SLW_NP/2017/")
+        #dir = longdir.replace(basedir, "")
+        files = [f for f in listdir(dir) if isfile(join(dir, f))]
+        if len(files) > 0:
+            to_open = ""
+            tif_files = [f for f in listdir(dir) if isfile(join(dir, f))]
+            for this_file in tif_files:
+                if this_file[-4:] == '.tif':
+                    if this_file != ".laz.las":
+                        to_open = to_open + " " + dir + this_file + " "
+
+                    #if this_file != '.laz_MERGED.tif':
+                    print dir + this_file
+            os.system('gdal_merge.py -of ENVI - -o ' + dir + 'out.tif ' + to_open)
+            os.system('gdal_translate -b 1 -b 9 -of ENVI -a_srs EPSG:27700 ' + dir + 'out.tif '+ dir + Out_name +'.bil')
+            os.system('gdalwarp -of ENVI -t_srs EPSG:27700 -cutline '+ cutdir + 'domain.shp -crop_to_cutline ' + dir + Out_name + '.bil '+ dir + Out_name +'_clip.bil')
+
+
+
+
+################################################################################
+import gdal
+
+def ReadBilFile(directory, file, band):
+    ds = gdal.Open(directory+file+".bil")
+    data = np.array(ds.GetRasterBand(band).ReadAsArray())
+    return data
+
+
+
+################################################################################
+def Simple_map(directory, arr, fig_name):
+
+
+    fig=plt.figure(1, facecolor='White',figsize=[10,10])
+    ax1 = plt.subplot2grid((1,1),(0,0),colspan=1, rowspan=1)
+
+    # Name the axes
+    ax1.set_xlabel('x (m)', fontsize = 12)
+    ax1.set_ylabel('y (m)', fontsize = 12)
+
+    # Make a mask!
+    #Platform_mask = np.ma.masked_where(Platform <=0, Platform)
+    #Platform_mask[Platform_mask>0] = DEM[Platform_mask>0]
+
+    # Make a map!
+    #Map_HS = ax1.imshow(HS, interpolation='None', cmap=plt.cm.gist_gray, vmin = 100, vmax = 200)
+    Map_DEM = ax1.imshow(arr, interpolation='None', cmap=plt.cm.PiYG, vmin = -0.5, vmax = 0.5, alpha = 0.8)
+    #Map_DEM = ax1.imshow(DEM, interpolation='None', cmap=plt.cm.gist_gray, vmin = np.amin(DEM[DEM!=Nodata_value]), vmax = np.amax(DEM), alpha = 0.5)
+    #Map_Marsh = ax1.imshow(Platform_mask, interpolation='None', cmap=plt.cm.gist_earth, vmin=np.amin(DEM[DEM!=Nodata_value]), vmax=np.amax(DEM), alpha = 0.5)
+
+
+    # create an axes on the right side of ax. The width of cax will be 5%
+    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    divider = make_axes_locatable(ax1)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    plt.colorbar(Map_DEM, cax=cax)
+
+    plt.savefig(directory + fig_name + '.png')
 
 
 
 ################################################################################
 # The actual code
-basedir = '/home/willgoodwin/Data/LiDAR/'
+#basedir = '/home/willgoodwin/Data/LiDAR/'
+basedir = '/home/willgoodwin/Data/LiDAR/UK/SLW_NP/'
+basedir1 = '/home/willgoodwin/Data/LiDAR/UK/SLW_NP/2009/'
+basedir2 = '/home/willgoodwin/Data/LiDAR/UK/SLW_NP/2017/'
+GRID_STEP = 1 # In the unit of the cloud
 
 #This is where you find all the directories
-directory_list = list_all_directories (basedir, [])
+#directory_list = list_all_directories (basedir, [])
+directory_list = ['/home/willgoodwin/Data/LiDAR/UK/SLW_NP/2009/']
+print directory_list
+
+
+
 
 # This is where you merge the clouds
-merge_clouds(basedir, directory_list, '.laz', 'A')
+#merge_clouds(basedir, directory_list, '.laz', 'A')
+
+#rasterize_clouds (basedir, directory_list, GRID_STEP, zipped = True)
+
+
+#merge_tiffs(basedir1, directory_list, basedir, 'Band_ZI')
+#merge_tiffs(basedir2, directory_list, basedir, 'Band_ZI')
 
 print 'booo'
 
-quit()
 
 
+Array_09 = ReadBilFile(basedir1, 'Band_ZI_clip', 1)
+Array_17 = ReadBilFile(basedir2, 'Band_ZI_clip', 1)
+
+#print Array1
+#print Array2
+
+Array_diff = - Array_09 + Array_17
+
+#print Array3
 
 
+Simple_map(basedir, Array_09, '1')
+Simple_map(basedir, Array_17, '2')
+Simple_map(basedir, Array_diff, '3')
 
-
-
-
-
-
-directory_list = list()
-for root, dirs, files in os.walk(Base_dir, topdown=False):
-    for name in dirs:
-        directory_list.append(name+'/')
-
-if len(directory_list) == 0:
-    directory_list.append(Base_dir)
-print directory_list
-
-# To merge files
-for mypath in directory_list:
-    myfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-    to_open = ""
-    for file in myfiles:
-        if file[-4:] == In_ext:
-            print mypath + file
-            to_open = to_open + "-O " + file + " "
-    os.system('cloudcompare.CloudCompare ' + to_open + '-NO_TIMESTAMP -MERGE_CLOUDS')
-
-    # To make them into rasters
-    for file in myfiles:
-        if file[-4:] == ".bin":
-            print mypath + file
-            os.system('cloudcompare.CloudCompare -O ' + file + ' -NO_TIMESTAMP -RASTERIZE -GRID_STEP '+ str(GRID_STEP) + ' -PROJ MIN -SF_PROJ AVG -EMPTY_FILL CUSTOM_H -CUSTOM_HEIGHT -9999 -OUTPUT_RASTER_Z &')
-
-
-
-
-        #print (LAZfile)
-        #os.system('laszip -i ' + LAZfile + ' -o ' + LASfile)
-
-
-
-
-
+"""SOMECLOUDS ARE SUPER HEAVY. mAKE SURE YOU ONLY LOAD Z TO MAKE IT LIGHTER"""
 
 quit()
